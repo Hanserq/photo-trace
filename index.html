@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhotoTrace — Secure Photo Provenance</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --text: #f0f0f8;
+    --text2: #8888aa;
+    --accent: #6c63ff;
+    --accent2: #a78bfa;
+    --success: #22d3a5;
+    --danger: #ff6b6b;
+    --warning: #fbbf24;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── NAV ── */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,15,0.9);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .logo-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .tab-btn {
+    padding: 8px 18px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* ── PAGES ── */
+  .page { display: none; padding: 2.5rem 2rem; max-width: 900px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ── HERO ── */
+  .hero {
+    text-align: center;
+    padding: 4rem 0 3rem;
+  }
+
+  .hero-badge {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(108, 99, 255, 0.15);
+    border: 1px solid rgba(108, 99, 255, 0.3);
+    border-radius: 100px;
+    font-size: 0.78rem;
+    color: var(--accent2);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+    margin-bottom: 1rem;
+  }
+
+  h1 span { color: var(--accent2); }
+
+  .hero-sub {
+    color: var(--text2);
+    font-size: 1.05rem;
+    max-width: 500px;
+    margin: 0 auto 2.5rem;
+  }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 16px;
+    padding: 3rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(108, 99, 255, 0.05);
+  }
+
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .upload-icon {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    background: rgba(108, 99, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-size: 1.5rem;
+  }
+
+  /* ── FORM ── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-size: 0.8rem;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .field input {
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  .field input:focus { border-color: var(--accent); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: none;
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    width: 100%;
+    margin-top: 1.25rem;
+  }
+
+  .btn-primary:hover { background: #5a52e0; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover { border-color: var(--border2); }
+
+  /* ── RESULT CARD ── */
+  .result-card {
+    margin-top: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: none;
+  }
+
+  .result-card.show { display: block; }
+
+  .result-card h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--success);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .result-card h3::before {
+    content: '';
+    width: 8px; height: 8px;
+    background: var(--success);
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .token-box {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent2);
+    word-break: break-all;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--border);
+  }
+
+  .token-label {
+    font-size: 0.75rem;
+    color: var(--text2);
+    margin-bottom: 4px;
+    font-family: var(--sans);
+  }
+
+  /* ── SHARE TAB ── */
+  .section-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+
+  .section-sub { color: var(--text2); font-size: 0.9rem; margin-bottom: 2rem; }
+
+  .recipients-list {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .recipient-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .recipient-row .field { flex: 1; }
+
+  .link-result {
+    background: var(--surface2);
+    border: 1px solid var(--success);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  /* ── SCAN TAB ── */
+  .scan-result {
+    margin-top: 2rem;
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: none;
+  }
+
+  .scan-result.show { display: block; }
+
+  .scan-header {
+    padding: 1rem 1.5rem;
+    background: rgba(255, 107, 107, 0.1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .scan-header.safe { background: rgba(34, 211, 165, 0.1); }
+
+  .chain-tree {
+    padding: 1.5rem;
+  }
+
+  .chain-node {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    position: relative;
+  }
+
+  .chain-node:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 44px;
+    bottom: -12px;
+    width: 1px;
+    background: var(--border2);
+  }
+
+  .node-dot {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 2px solid var(--border2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .node-dot.owner { border-color: var(--accent); color: var(--accent); }
+  .node-dot.leaked { border-color: var(--danger); color: var(--danger); }
+
+  .node-info { flex: 1; }
+  .node-name { font-weight: 500; font-size: 0.9rem; }
+  .node-meta { font-size: 0.78rem; color: var(--text2); font-family: var(--mono); }
+
+  /* ── STATUS CHIP ── */
+  .chip {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .chip-success { background: rgba(34, 211, 165, 0.15); color: var(--success); }
+  .chip-danger { background: rgba(255, 107, 107, 0.15); color: var(--danger); }
+  .chip-warning { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
+
+  /* ── LOADING ── */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── CONFIG NOTICE ── */
+  .config-notice {
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    font-size: 0.85rem;
+    color: var(--warning);
+    margin-bottom: 2rem;
+    line-height: 1.7;
+  }
+
+  .config-notice strong { font-weight: 700; }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 8px;
+    color: var(--text2);
+    font-size: 0.7rem;
+    cursor: pointer;
+    font-family: var(--sans);
+  }
+
+  .copy-btn:hover { border-color: var(--border2); color: var(--text); }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    nav { padding: 1rem; }
+    .page { padding: 1.5rem 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    PhotoTrace
+  </div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="showTab('upload')">Register</button>
+    <button class="tab-btn" onclick="showTab('share')">Share</button>
+    <button class="tab-btn" onclick="showTab('scan')">Scan</button>
+    <button class="tab-btn" onclick="showTab('dashboard')">Dashboard</button>
+  </div>
+</nav>
+
+<!-- ═══════════════ UPLOAD TAB ═══════════════ -->
+<div class="page active" id="tab-upload">
+  <div class="hero">
+    <div class="hero-badge">Invisible Watermarking + Chain Tracking</div>
+    <h1>Track every <span>share</span><br>trace every <span>leak</span></h1>
+    <p class="hero-sub">Register your photo. We embed an invisible ID. Every view is logged. If it leaks, you know exactly who had it.</p>
+  </div>
+
+  <div class="config-notice">
+    <strong>Setup required:</strong> Open <code>app.js</code> and set your <code>API_BASE</code> to your Flask server URL, and your Supabase credentials in the backend <code>.env</code> file before using.
+  </div>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="photoFile" accept="image/*">
+    <div class="upload-icon">📷</div>
+    <p style="font-weight:500; margin-bottom:4px;">Drop your photo here</p>
+    <p style="font-size:0.85rem; color:var(--text2);">PNG, JPG, WEBP supported</p>
+  </div>
+
+  <div id="fileName" style="margin-top:10px; font-size:0.85rem; color:var(--text2); font-family:var(--mono);"></div>
+
+  <div class="form-grid">
+    <div class="field">
+      <label>Your Name</label>
+      <input type="text" id="ownerName" placeholder="e.g. Hanser">
+    </div>
+    <div class="field">
+      <label>Your Email (optional)</label>
+      <input type="email" id="ownerEmail" placeholder="for notifications">
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="uploadBtn" onclick="uploadPhoto()">
+    Register & Protect Photo
+  </button>
+
+  <div class="result-card" id="uploadResult">
+    <h3>Photo Registered</h3>
+    <div class="token-label">Photo ID</div>
+    <div class="token-box" id="resPhotoId"></div>
+    <div class="token-label">Owner Token <span style="color:var(--danger)">(Save this — never share it)</span></div>
+    <div class="token-box" id="resOwnerToken"></div>
+    <div class="token-label">Dashboard URL</div>
+    <div class="token-box" id="resDashboard"></div>
+    <div style="margin-top:1rem; display:flex; gap:10px;">
+      <button class="btn btn-secondary" onclick="copyToClipboard('resOwnerToken', this)">Copy Token</button>
+      <button class="btn btn-secondary" onclick="goToShare()">Create Share Links →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SHARE TAB ═══════════════ -->
+<div class="page" id="tab-share">
+  <p class="section-title">Create share links</p>
+  <p class="section-sub">Generate a unique traceable link for each person you share with.</p>
+
+  <div class="form-grid">
+    <div class="field">
+      <label>Photo ID</label>
+      <input type="text" id="sharePhotoId" placeholder="ph_...">
+    </div>
+    <div class="field">
+      <label>Owner Token</label>
+      <input type="password" id="shareOwnerToken" placeholder="own_...">
+    </div>
+  </div>
+
+  <div class="recipients-list" id="recipientsList">
+    <div class="recipient-row">
+      <div class="field">
+        <label>Recipient Name</label>
+        <input type="text" class="rec-name" placeholder="e.g. Akhil">
+      </div>
+      <div class="field">
+        <label>Contact (optional)</label>
+        <input type="text" class="rec-contact" placeholder="phone or email hint">
+      </div>
+      <button class="btn btn-secondary" style="margin-bottom:0; padding:10px 14px; white-space:nowrap;" onclick="generateLink(this)">Generate Link</button>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; margin-top:1.25rem;">
+    <button class="btn btn-secondary" onclick="addRecipient()">+ Add Recipient</button>
+    <button class="btn btn-primary" style="margin-top:0; flex:1;" onclick="generateAllLinks()">Generate All Links</button>
+  </div>
+</div>
+
+<!-- ═══════════════ SCAN TAB ═══════════════ -->
+<div class="page" id="tab-scan">
+  <p class="section-title">Scan leaked photo</p>
+  <p class="section-sub">Upload a photo you found online. We decode the embedded watermark and trace who leaked it.</p>
+
+  <div class="upload-zone" id="scanZone">
+    <input type="file" id="scanFile" accept="image/*">
+    <div class="upload-icon">🔍</div>
+    <p style="font-weight:500; margin-bottom:4px;">Drop the leaked photo here</p>
+    <p style="font-size:0.85rem; color:var(--text2);">We will decode the invisible watermark</p>
+  </div>
+
+  <div class="form-grid" style="margin-top:1.5rem;">
+    <div class="field">
+      <label>Owner Token (required for decoding)</label>
+      <input type="password" id="scanOwnerToken" placeholder="own_...">
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="scanPhoto()">Decode & Trace</button>
+
+  <div class="scan-result" id="scanResult">
+    <div class="scan-header" id="scanHeader">
+      <span id="scanStatusIcon">⚠️</span>
+      <div>
+        <div style="font-weight:600; font-size:0.95rem;" id="scanStatusTitle">Watermark detected</div>
+        <div style="font-size:0.8rem; color:var(--text2);" id="scanStatusSub"></div>
+      </div>
+    </div>
+    <div class="chain-tree" id="chainTree"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ DASHBOARD TAB ═══════════════ -->
+<div class="page" id="tab-dashboard">
+  <p class="section-title">Access dashboard</p>
+  <p class="section-sub">View the full sharing tree and all access events for your photo.</p>
+
+  <div class="form-grid">
+    <div class="field">
+      <label>Photo ID</label>
+      <input type="text" id="dashPhotoId" placeholder="ph_...">
+    </div>
+    <div class="field">
+      <label>Owner Token</label>
+      <input type="password" id="dashOwnerToken" placeholder="own_...">
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="loadDashboard()">Load Dashboard</button>
+
+  <div id="dashboardContent" style="margin-top:2rem; display:none;">
+    <div style="display:grid; grid-template-columns: repeat(3,1fr); gap:12px; margin-bottom:2rem;">
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem;">
+        <div style="font-size:0.75rem; color:var(--text2); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Total Shares</div>
+        <div style="font-size:1.8rem; font-weight:700;" id="statShares">—</div>
+      </div>
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem;">
+        <div style="font-size:0.75rem; color:var(--text2); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Total Views</div>
+        <div style="font-size:1.8rem; font-weight:700;" id="statViews">—</div>
+      </div>
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem;">
+        <div style="font-size:0.75rem; color:var(--text2); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Chain Depth</div>
+        <div style="font-size:1.8rem; font-weight:700;" id="statDepth">—</div>
+      </div>
+    </div>
+    <div id="sessionsList"></div>
+  </div>
+</div>
+
+<script>
+const API_BASE = "http://localhost:5000";
+
+function showTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── File input display ──
+document.getElementById('photoFile').addEventListener('change', function() {
+  const file = this.files[0];
+  document.getElementById('fileName').textContent = file ? '📎 ' + file.name : '';
+});
+
+// Drag and drop
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  document.getElementById('photoFile').files = e.dataTransfer.files;
+  const file = e.dataTransfer.files[0];
+  document.getElementById('fileName').textContent = file ? '📎 ' + file.name : '';
+});
+
+// ── Upload photo ──
+async function uploadPhoto() {
+  const file = document.getElementById('photoFile').files[0];
+  if (!file) return alert('Please select a photo first');
+
+  const btn = document.getElementById('uploadBtn');
+  btn.innerHTML = '<span class="spinner"></span> Registering...';
+  btn.disabled = true;
+
+  const formData = new FormData();
+  formData.append('photo', file);
+  formData.append('owner_name', document.getElementById('ownerName').value || 'Anonymous');
+  formData.append('owner_email', document.getElementById('ownerEmail').value || '');
+
+  try {
+    const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.success) {
+      document.getElementById('resPhotoId').textContent = data.photo_id;
+      document.getElementById('resOwnerToken').textContent = data.owner_token;
+      document.getElementById('resDashboard').textContent = data.dashboard_url;
+      document.getElementById('uploadResult').classList.add('show');
+
+      // Store for convenience
+      localStorage.setItem('pt_photo_id', data.photo_id);
+      localStorage.setItem('pt_owner_token', data.owner_token);
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  } catch(e) {
+    alert('Cannot connect to server. Make sure Flask is running on ' + API_BASE);
+  }
+
+  btn.innerHTML = 'Register & Protect Photo';
+  btn.disabled = false;
+}
+
+// ── Share tab ──
+function goToShare() {
+  document.querySelectorAll('.tab-btn')[1].click();
+  document.getElementById('sharePhotoId').value = localStorage.getItem('pt_photo_id') || '';
+  document.getElementById('shareOwnerToken').value = localStorage.getItem('pt_owner_token') || '';
+}
+
+function addRecipient() {
+  const list = document.getElementById('recipientsList');
+  const row = document.createElement('div');
+  row.className = 'recipient-row';
+  row.innerHTML = `
+    <div class="field"><label>Recipient Name</label><input type="text" class="rec-name" placeholder="Name"></div>
+    <div class="field"><label>Contact (optional)</label><input type="text" class="rec-contact" placeholder="phone or email hint"></div>
+    <button class="btn btn-secondary" style="margin-bottom:0; padding:10px 14px;" onclick="generateLink(this)">Generate</button>
+  `;
+  list.appendChild(row);
+}
+
+async function generateLink(btn) {
+  const row = btn.closest('.recipient-row');
+  const name = row.querySelector('.rec-name').value || 'Unknown';
+  const contact = row.querySelector('.rec-contact').value || '';
+  const photoId = document.getElementById('sharePhotoId').value;
+  const ownerToken = document.getElementById('shareOwnerToken').value;
+
+  if (!photoId || !ownerToken) return alert('Enter Photo ID and Owner Token first');
+
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        photo_id: photoId,
+        owner_token: ownerToken,
+        recipient_name: name,
+        recipient_identifier: contact
+      })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      let linkDiv = row.querySelector('.link-result');
+      if (!linkDiv) {
+        linkDiv = document.createElement('div');
+        linkDiv.className = 'link-result';
+        row.parentNode.insertBefore(linkDiv, row.nextSibling);
+      }
+      linkDiv.innerHTML = `
+        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${data.share_link}</span>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('${data.share_link}'); this.textContent='Copied!'">Copy</button>
+      `;
+    } else {
+      alert('Error: ' + (data.error || 'Unknown'));
+    }
+  } catch(e) {
+    alert('Cannot connect to server.');
+  }
+
+  btn.innerHTML = 'Generate';
+  btn.disabled = false;
+}
+
+async function generateAllLinks() {
+  const rows = document.querySelectorAll('.recipient-row');
+  for (const row of rows) {
+    const btn = row.querySelector('button');
+    await generateLink(btn);
+  }
+}
+
+// ── Scan ──
+async function scanPhoto() {
+  const file = document.getElementById('scanFile').files[0];
+  const token = document.getElementById('scanOwnerToken').value;
+  if (!file) return alert('Please upload a photo to scan');
+  if (!token) return alert('Enter your owner token to decrypt the watermark');
+
+  const formData = new FormData();
+  formData.append('photo', file);
+  formData.append('owner_token', token);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/scan`, { method: 'POST', body: formData });
+    const data = await res.json();
+    renderScanResult(data);
+  } catch(e) {
+    alert('Cannot connect to server.');
+  }
+}
+
+function renderScanResult(data) {
+  const el = document.getElementById('scanResult');
+  const header = document.getElementById('scanHeader');
+  const tree = document.getElementById('chainTree');
+
+  el.classList.add('show');
+
+  if (!data.watermark_found) {
+    header.className = 'scan-header safe';
+    document.getElementById('scanStatusIcon').textContent = '✓';
+    document.getElementById('scanStatusTitle').textContent = 'No watermark found';
+    document.getElementById('scanStatusSub').textContent = 'This photo was not registered with PhotoTrace';
+    tree.innerHTML = '';
+    return;
+  }
+
+  header.className = 'scan-header';
+  document.getElementById('scanStatusIcon').textContent = '⚠';
+  document.getElementById('scanStatusTitle').textContent = 'Watermark decoded — leak traced';
+  document.getElementById('scanStatusSub').textContent =
+    `Chain depth: ${data.chain_depth} · Leaked by: ${data.leaked_by?.name || 'Unknown'}`;
+
+  // Render chain
+  const chain = data.chain || [];
+  tree.innerHTML = chain.map((node, i) => `
+    <div class="chain-node">
+      <div class="node-dot ${i === 0 ? 'owner' : node.session_id === data.leaked_session_id ? 'leaked' : ''}">
+        ${i === 0 ? '★' : i + 1}
+      </div>
+      <div class="node-info">
+        <div class="node-name">
+          ${node.recipient_name || 'Owner'}
+          ${node.session_id === data.leaked_session_id ? '<span class="chip chip-danger" style="margin-left:8px;">LEAKED HERE</span>' : ''}
+        </div>
+        <div class="node-meta">
+          ${node.last_accessed_at ? 'Accessed: ' + new Date(node.last_accessed_at).toLocaleString() : 'Not yet opened'} ·
+          IP: ${node.ip_address || '—'} ·
+          Views: ${node.access_count || 0}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Dashboard ──
+async function loadDashboard() {
+  const photoId = document.getElementById('dashPhotoId').value;
+  const token = document.getElementById('dashOwnerToken').value;
+  if (!photoId || !token) return alert('Enter Photo ID and Token');
+
+  try {
+    const res = await fetch(`${API_BASE}/api/chain/${photoId}`, {
+      headers: { 'X-Owner-Token': token }
+    });
+    const data = await res.json();
+    renderDashboard(data);
+  } catch(e) {
+    alert('Cannot connect to server.');
+  }
+}
+
+function renderDashboard(data) {
+  document.getElementById('dashboardContent').style.display = 'block';
+  document.getElementById('statShares').textContent = data.photo?.total_shares || 0;
+  document.getElementById('statViews').textContent = data.photo?.total_views || 0;
+
+  const maxDepth = Math.max(...(data.sessions || []).map(s => s.depth), 0);
+  document.getElementById('statDepth').textContent = maxDepth;
+
+  const list = document.getElementById('sessionsList');
+  list.innerHTML = (data.sessions || []).map(s => `
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem 1.25rem; margin-bottom:10px; display:flex; align-items:center; gap:16px;">
+      <div style="font-family:var(--mono); font-size:0.7rem; color:var(--text2); width:80px; flex-shrink:0;">Depth ${s.depth}</div>
+      <div style="flex:1;">
+        <div style="font-weight:500;">${s.recipient_name}</div>
+        <div style="font-size:0.78rem; color:var(--text2);">${s.recipient_identifier || 'No contact info'}</div>
+      </div>
+      <div style="text-align:right;">
+        <span class="chip ${s.accessed ? 'chip-warning' : 'chip-success'}">${s.accessed ? `${s.access_count} views` : 'Not opened'}</span>
+      </div>
+    </div>
+  `).join('') || '<p style="color:var(--text2);">No shares yet</p>';
+}
+
+function copyToClipboard(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent);
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy Token', 2000);
+}
+</script>
+</body>
+</html>
